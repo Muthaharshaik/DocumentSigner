@@ -1,0 +1,44 @@
+{
+  "name": "documentsigner",
+  "widgetName": "DocumentSigner",
+  "version": "1.0.0",
+  "description": "A drag and drop document signing widget that allows users to place signature,name and date fields on documents with auto generated digital signatures",
+  "copyright": "© Mendix Technology BV 2022. All rights reserved.",
+  "author": "Muthahar Shaik",
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "Apache-2.0",
+  "config": {
+    "projectPath": "./tests/testProject",
+    "mendixHost": "http://localhost:8080",
+    "developmentPort": 3000
+  },
+  "packagePath": "lowcodelabs",
+  "scripts": {
+    "start": "pluggable-widgets-tools start:server",
+    "dev": "pluggable-widgets-tools start:web",
+    "build": "pluggable-widgets-tools build:web",
+    "lint": "pluggable-widgets-tools lint",
+    "lint:fix": "pluggable-widgets-tools lint:fix",
+    "prerelease": "npm run lint",
+    "release": "pluggable-widgets-tools release:web"
+  },
+  "devDependencies": {
+    "@mendix/pluggable-widgets-tools": "^10.15.0"
+  },
+  "dependencies": {
+    "classnames": "^2.2.6",
+    "crypto-js": "^4.2.0",
+    "cryptojs": "^2.5.3",
+    "react-pdf": "^10.2.0"
+  },
+  "resolutions": {
+    "react": "^18.2.0",
+    "react-native": "0.72.7"
+  },
+  "overrides": {
+    "react": "^18.2.0",
+    "react-native": "0.72.7"
+  }
+}

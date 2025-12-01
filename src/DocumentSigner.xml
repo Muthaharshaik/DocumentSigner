@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget id="lowcodelabs.documentsigner.DocumentSigner" pluginWidget="true" needsEntityContext="true" offlineCapable="true"
+        supportedPlatform="Web"
+        xmlns="http://www.mendix.com/widget/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.mendix.com/widget/1.0/ ../node_modules/mendix/custom_widget.xsd">
+    <name>Document Signer</name>
+    <description>A drag and drop document signing widget that allows users to place signature,name and date fields on documents with auto generated digital signatures</description>
+    <icon/>
+    <properties>
+        <propertyGroup caption="AWS Configuration">
+            <property key="awsAccessKey" type="attribute" required="true">
+                <caption>AWS Access Key</caption>
+                <description>AWS Access Key for s3 access</description>
+                <attributeTypes>
+                    <attributeType name="String" />
+                </attributeTypes>
+            </property>
+
+            <property key="awsSecretKey" type="attribute" required="true">
+                <caption>AWS Secret Key</caption>
+                <description>AWS Secret Key for s3 access</description>
+                <attributeTypes>
+                    <attributeType name="String"/>
+                </attributeTypes>
+            </property>
+
+            <property key="awsRegion" type="attribute" required="true">
+                <caption>AWS Region</caption>
+                <description>AWS Region where S3 bucket is located</description>
+                <attributeTypes>
+                    <attributeType name="String"/>
+                </attributeTypes>
+            </property>
+
+            <property key="s3BucketName" type="attribute" required="true">
+                <caption>S3 Bucket Name</caption>
+                <description>Name of the S3 bucket containing the document</description>
+                <attributeTypes>
+                    <attributeType name="String"/>
+                </attributeTypes>
+            </property>
+
+            <property key="fileName" type="attribute" required="true">
+                <caption>File Name</caption>
+                <description>Name/path of the PDF in the S3 Bucket</description>
+                <attributeTypes>
+                    <attributeType name="String"/>
+                </attributeTypes>
+            </property>
+
+            <property key="userName" type="attribute" required="false">
+                <caption>User Name</caption>
+                <description>Current user's name for signatures</description>
+                <attributeTypes>
+                    <attributeType name="String"/>
+                </attributeTypes>
+            </property>
+        </propertyGroup>
+
+        
+    </properties>
+</widget>

@@ -1,0 +1,428 @@
+/* ============================================================
+   DOCUMENT VIEWER - PDF Display Styles
+   Enhanced to match PDF Annotations widget quality
+   ============================================================ */
+
+/* CSS Variables */
+:root {
+    --dv-primary-color: #007bff;
+    --dv-border-color: #dee2e6;
+    --dv-bg-color: #f5f5f5;
+    --dv-toolbar-bg: #ffffff;
+}
+
+/* Container */
+.document-viewer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background-color: var(--dv-bg-color);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+
+.document-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: var(--dv-toolbar-bg);
+    border-bottom: 1px solid var(--dv-border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toolbar-button {
+    padding: 8px 16px;
+    border: 1px solid var(--dv-border-color);
+    border-radius: 6px;
+    background-color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+    transition: all 0.2s ease;
+}
+
+.toolbar-button:hover:not(:disabled) {
+    background-color: #f8f9fa;
+    border-color: var(--dv-primary-color);
+    color: var(--dv-primary-color);
+}
+
+.toolbar-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.toolbar-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-info,
+.zoom-info {
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+    min-width: 100px;
+    text-align: center;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+}
+
+/* ============================================================
+   PDF CONTAINER
+   ============================================================ */
+
+.pdf-container {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    position: relative;
+    background-color: var(--dv-bg-color);
+}
+
+.pdf-page-wrapper {
+    position: relative;
+    display: inline-block;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    border-radius: 4px;
+}
+
+/* React-PDF Styles */
+.react-pdf__Document {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.react-pdf__Page {
+    max-width: none !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background: white;
+    border-radius: 4px;
+}
+
+.react-pdf__Page canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Text layer for copy/paste */
+.react-pdf__Page__textContent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+    user-select: text;
+}
+
+.react-pdf__Page__textContent span {
+    color: transparent;
+    position: absolute;
+    white-space: nowrap;
+    cursor: text;
+}
+
+/* Text Selection */
+.react-pdf__Page__textContent ::selection {
+    background: rgba(255, 193, 7, 0.6) !important;
+}
+
+/* ============================================================
+   LOADING STATES
+   ============================================================ */
+
+.document-viewer-loading,
+.preparing-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: #6c757d;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(248, 249, 250, 0.95);
+    z-index: 10;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e9ecef;
+    border-top: 4px solid var(--dv-primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    text-align: center;
+}
+
+.loading-message {
+    font-size: 16px;
+    color: var(--dv-primary-color);
+    font-weight: 500;
+}
+
+.page-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    min-width: 300px;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.page-loading p {
+    margin: 8px 0 0 0;
+    font-size: 14px;
+}
+
+/* ============================================================
+   ERROR STATE
+   ============================================================ */
+
+.document-viewer-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: 8px;
+    margin: 20px;
+    max-width: 600px;
+}
+
+.document-viewer-error .error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.document-viewer-error h3 {
+    margin: 0 0 12px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #c53030;
+}
+
+.document-viewer-error .error-message {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: #742a2a;
+    line-height: 1.5;
+}
+
+.document-viewer-error .troubleshooting-section {
+    text-align: left;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+    width: 100%;
+}
+
+.document-viewer-error .troubleshooting-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #856404;
+}
+
+.document-viewer-error .troubleshooting-section ul {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #856404;
+}
+
+.document-viewer-error .methods-info {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+
+.document-viewer-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    padding: 40px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.document-viewer-empty .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.document-viewer-empty h3 {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+    color: #495057;
+}
+
+.document-viewer-empty p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* ============================================================
+   RESPONSIVE DESIGN
+   ============================================================ */
+
+@media (max-width: 768px) {
+    .document-toolbar {
+        flex-direction: column;
+        padding: 10px;
+    }
+
+    .toolbar-section {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .toolbar-button {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    .page-info,
+    .zoom-info {
+        font-size: 13px;
+        min-width: 80px;
+        padding: 6px 10px;
+    }
+
+    .pdf-container {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .toolbar-button {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+}
+
+/* ============================================================
+   ACCESSIBILITY
+   ============================================================ */
+
+.toolbar-button:focus {
+    outline: 2px solid var(--dv-primary-color);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-spinner {
+        animation: none;
+    }
+    
+    .toolbar-button {
+        transition: none;
+    }
+}
+
+@media (prefers-contrast: high) {
+    .toolbar-button {
+        border: 2px solid #000;
+    }
+    
+    .react-pdf__Page {
+        border: 2px solid #000;
+    }
+}
+
+/* ============================================================
+   CUSTOM SCROLLBAR
+   ============================================================ */
+
+.pdf-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.pdf-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+
+@media print {
+    .document-toolbar {
+        display: none !important;
+    }
+    
+    .pdf-container {
+        padding: 0;
+    }
+    
+    .react-pdf__Page {
+        box-shadow: none !important;
+        margin: 0 !important;
+    }
+}
