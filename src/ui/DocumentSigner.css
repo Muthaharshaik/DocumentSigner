@@ -29,7 +29,27 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
-
+.signer-layout {
+    display: flex;
+    height: 100%;
+}
+.left-pdf-viewer {
+    width: 70%;
+    border-right: 1px solid white
+}
+.right-field-pannel {
+    width:30%;
+    padding:20px;
+    background: #f5f5f5;
+}
+.field-name {
+  padding: 10px 12px;
+  border: 1px dashed grey;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: #fff;
+  cursor: grab;
+}
 /* ============================================================
    LOADING STATE - Enhanced like PDF Annotations
    ============================================================ */

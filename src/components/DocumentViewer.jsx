@@ -9,7 +9,7 @@ import '../ui/DocumentViewer.css';
 console.log('🔧 PDF.js version from react-pdf:', pdfjs.version);
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-export default function DocumentViewer({ pdfUrl, widgetInstanceId }) {
+export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, droppedFields, removeField}) {
     const [isLoading, setIsLoading] = useState(true);
     const [numPages, setNumPages] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -49,6 +49,36 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId }) {
         isOffscreenCanvasSupported: false,
         pdfBug: false
     }), []);
+    
+    //This function is called when Dragging Over PDF page
+    const handleDragOver = useCallback((e) => {
+        e.preventDefault() //Must allow dropping
+    },[])
+
+    //This function is called when Dropping on PDF page
+    const handleDrop = useCallback((e) => {
+        e.preventDefault()
+        const fieldType = e.dataTransfer.getData("fieldType")
+        if (!fieldType) return;
+        //Get position relative to PDF container
+        //Get PDF box position on screen
+        const rect = e.currentTarget.getBoundingClientRect();
+        //Mouse position inside PDF
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        // Convert into percentage coordinates
+        //x means horizantal from left 
+        //y means vertcial from top
+        const xPercent = (x / rect.width) * 100;
+        const yPercent = (y / rect.height) * 100;
+
+        // Notify parent (DocumentSigner)
+        onFieldDrop(fieldType, {
+            xPercent,
+            yPercent,
+            page: currentPage
+        });
+    },[onFieldDrop, currentPage])
 
     // PDF loading strategies (like PDF Annotations)
     const createPDFSource = useCallback((url, method) => {
@@ -311,6 +341,7 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId }) {
                 {/* PDF Document */}
                 {processedPdfSource ? (
                     <div className="pdf-page-wrapper">
+                        <div className="pdf-drop-zone" onDragOver={handleDragOver}  onDrop={handleDrop}>
                         <Document
                             file={processedPdfSource}
                             onLoadSuccess={handleLoadSuccess}
@@ -336,6 +367,56 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId }) {
                                 }
                             />
                         </Document>
+                        </div>
+                        {droppedFields
+                           .filter(field => field.page === currentPage)
+                           .map(field => (
+                             <div 
+                               key={field.id}
+                               className="pdf-field-placeholder"
+                               style={{
+                                 position:'absolute',
+                                 left: `${field.xPercent}%`,
+                                 top: `${field.yPercent}%`,
+                                transform: "translate(-50%, -50%)",
+                                padding: "5px 10px",
+                                backgroundColor: "rgba(255,255,0,0.7)",
+                                border: "1px solid #333",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                zIndex: 100,
+                               }}
+                            >
+                            <span style={{ fontWeight:"600" }}>
+                                {field.value}
+                            </span>
+                            <button
+                                onClick={() => removeField(field.id)}
+                                style={{
+                                   position: "absolute",
+                                   top: "-8px",
+                                   right: "-8px",
+                                   width: "18px",
+                                   height: "18px",
+                                   borderRadius: "50%",
+                                   border: "none",
+                                   background: "#e03131",
+                                   color: "#fff",
+                                   fontSize: "12px",
+                                   fontWeight: "700",
+                                   cursor: "pointer",
+                                   display: "flex",
+                                   justifyContent: "center",
+                                   alignItems: "center"
+                                }}
+                            >
+                            ✕
+                            </button>
+                            </div>
+                           ))
+
+                        }
+
                     </div>
                 ) : (
                     <div className="preparing-container">

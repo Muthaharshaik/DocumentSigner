@@ -13,6 +13,7 @@ export default function DocumentSigner(props) {
     const [loadingStatus, setLoadingStatus] = useState("Initializing widget...");
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [debugInfo, setDebugInfo] = useState([]);
+    const [droppedFields, setDroppedFields] = useState([])
 
     // Unique widget instance ID for isolation (like PDF Annotations)
     const [widgetInstanceId] = useState(() => {
@@ -241,6 +242,37 @@ export default function DocumentSigner(props) {
         };
     }, [pdfUrl, addDebugLog]);
 
+    //Function to trigger when the user drops the field
+    const handleFieldDrop = (fieldType, position) => {
+        let labelValue;
+        console.info(props.userName?.value || "No user Name")
+        console.info(props.currentDate?.value || "No Current Date")
+        if (fieldType === "name" && props.userName?.value) {
+            labelValue = props.userName.value
+        }
+        if (fieldType === "date" && props.currentDate?.value) {
+            labelValue = props.currentDate.value
+        }
+        if (fieldType === "signature" && props.userName?.value) {
+            labelValue = `Signed by ${props.userName.value}`;
+        }
+        const newField = {
+            id: crypto.randomUUID(),
+            type: fieldType,
+            page: position.page,
+            xPercent: position.xPercent,
+            yPercent: position.yPercent,
+            value: labelValue
+        };
+
+        setDroppedFields(prev => [...prev, newField])
+    };
+
+    //Function to remove the Field
+    const removeField = (id) => {
+        setDroppedFields(prev => prev.filter(field => field.id !== id));
+    }
+
     // Loading state (enhanced like PDF Annotations)
     if (isLoading) {
         return (
@@ -303,13 +335,33 @@ export default function DocumentSigner(props) {
         );
     }
 
+
     // Success - render DocumentViewer
     return (
         <div className="document-signer" data-widget-instance={widgetInstanceId}>
-            <DocumentViewer 
-                pdfUrl={pdfUrl} 
-                widgetInstanceId={widgetInstanceId}
-            />
+            <div className="signer-layout">
+                <div className="left-pdf-viewer">
+                    <DocumentViewer 
+                        pdfUrl={pdfUrl} 
+                        widgetInstanceId={widgetInstanceId}
+                        onFieldDrop={handleFieldDrop}
+                        droppedFields={droppedFields}
+                        removeField={removeField}
+                    />
+                </div>
+                <div className="right-field-pannel">
+                    <h3>Add Fields</h3>
+                    <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "name")}>
+                        Name Field
+                    </div>
+                    <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "date")}>
+                        Date Field
+                    </div>
+                    <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "signature")}>
+                        Signature Field
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

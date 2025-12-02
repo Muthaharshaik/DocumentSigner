@@ -1,0 +1,3 @@
+used s3 signed authentication for downloading the files from s3
+Then used react-pdf libraray to load the pdf 
+and added the drag and drop sidebar fields are draggable HTML5 elements, we use dataTransfer to send the field type during drag, compute drop coordinates relative to the PDF, convert them to percentages, store each field as an object in a fields array (type, page, x%, y%, value), and then render those objects as positioned overlays on the PDF with delete support.

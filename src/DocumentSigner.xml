@@ -55,6 +55,14 @@
                     <attributeType name="String"/>
                 </attributeTypes>
             </property>
+
+            <property key="currentDate" type="attribute" required="true">
+                <caption>Current Date</caption>
+                <description>Current Date to Add in the Drag and Drop Fields</description>
+                <attributeTypes>
+                    <attributeType name="String" />
+                </attributeTypes>
+            </property>
         </propertyGroup>
 
         
