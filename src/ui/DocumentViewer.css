@@ -285,7 +285,19 @@
     color: #6c757d;
     font-style: italic;
 }
+.pdf-drop-zone {
+    position: relative;
+    display: inline-block;
+}
 
+.pdf-field-placeholder {
+    cursor: move;
+    user-select: none;
+}
+
+.pdf-field-placeholder:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
 /* ============================================================
    EMPTY STATE
    ============================================================ */

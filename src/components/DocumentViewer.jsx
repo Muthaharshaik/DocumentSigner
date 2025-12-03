@@ -4,12 +4,13 @@
 import { createElement, useCallback, useState, useEffect, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import '../ui/DocumentViewer.css';
+import SignatureModal from "./SignatureModal";
 
 // PDF.js worker setup
 console.log('🔧 PDF.js version from react-pdf:', pdfjs.version);
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, droppedFields, removeField}) {
+export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, droppedFields, removeField, onSignatureApply}) {
     const [isLoading, setIsLoading] = useState(true);
     const [numPages, setNumPages] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -19,6 +20,8 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
     const [processedPdfSource, setProcessedPdfSource] = useState(null);
     const [isPreparingSource, setIsPreparingSource] = useState(false);
     const [isCanvasReady, setIsCanvasReady] = useState(false);
+    const [showSignatureModal, setShowSignatureModal] = useState(false)
+    const [signingFieldId, setSigningFieldId] = useState(null) //which field is being signed
 
     // Document options (memoized like PDF Annotations)
     const documentOptions = useMemo(() => ({
@@ -245,6 +248,29 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
         setScale(1.0)
     }, [])
 
+    // Open modal when user clicks signature placeholder
+    const handleSignatureClick = useCallback((fieldId) => {
+        setSigningFieldId(fieldId);
+        setShowSignatureModal(true);
+    }, []);
+
+    // Close modal
+    const handleSignatureClose = useCallback(() => {
+        setShowSignatureModal(false);
+        setSigningFieldId(null);
+    }, []);
+
+    // Apply signature to field
+    const handleSignatureApply = useCallback((signatureData) => {
+        // We need to update the field's value with signature
+        // This requires a function from parent (DocumentSigner)
+        if (signingFieldId && onSignatureApply) {
+            onSignatureApply(signingFieldId, signatureData);
+        }
+        setShowSignatureModal(false);
+        setSigningFieldId(null);
+    }, [signingFieldId, onSignatureApply]);
+
     // Initial loading state
     if (!pdfUrl) {
         return (
@@ -367,56 +393,84 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
                                 }
                             />
                         </Document>
-                        </div>
                         {droppedFields
-                           .filter(field => field.page === currentPage)
-                           .map(field => (
-                             <div 
-                               key={field.id}
-                               className="pdf-field-placeholder"
-                               style={{
-                                 position:'absolute',
-                                 left: `${field.xPercent}%`,
-                                 top: `${field.yPercent}%`,
-                                transform: "translate(-50%, -50%)",
-                                padding: "5px 10px",
-                                backgroundColor: "rgba(255,255,0,0.7)",
-                                border: "1px solid #333",
-                                borderRadius: "4px",
-                                fontSize: "12px",
-                                zIndex: 100,
-                               }}
-                            >
-                            <span style={{ fontWeight:"600" }}>
-                                {field.value}
-                            </span>
-                            <button
-                                onClick={() => removeField(field.id)}
-                                style={{
-                                   position: "absolute",
-                                   top: "-8px",
-                                   right: "-8px",
-                                   width: "18px",
-                                   height: "18px",
-                                   borderRadius: "50%",
-                                   border: "none",
-                                   background: "#e03131",
-                                   color: "#fff",
-                                   fontSize: "12px",
-                                   fontWeight: "700",
-                                   cursor: "pointer",
-                                   display: "flex",
-                                   justifyContent: "center",
-                                   alignItems: "center"
-                                }}
-                            >
-                            ✕
-                            </button>
-                            </div>
-                           ))
-
-                        }
-
+    .filter(field => field.page === currentPage)
+    .map(field => (
+        <div 
+            key={field.id}
+            className="pdf-field-placeholder"
+            style={{
+                position: 'absolute',
+                left: `${field.xPercent}%`,
+                top: `${field.yPercent}%`,
+                transform: `translate(-50%, -50%) scale(${scale})`,
+                transformOrigin: 'center center',
+                padding: "5px 10px",
+                backgroundColor: field.type === "signature" && !field.signatureData 
+                    ? "rgba(200, 230, 255, 0.9)"  // Blue for unsigned
+                    : "rgba(255, 255, 0, 0.7)",   // Yellow for others
+                border: "1px solid #333",
+                borderRadius: "4px",
+                fontSize: "12px",
+                zIndex: 100,
+                cursor: field.type === "signature" ? "pointer" : "default",
+            }}
+            onClick={() => {
+                // Only open modal for signature fields that aren't signed yet
+                if (field.type === "signature" && !field.signatureData) {
+                    handleSignatureClick(field.id);
+                }
+            }}
+        >
+            {/* Show signature image or placeholder text */}
+            {field.type === "signature" ? (
+                field.signatureData ? (
+                    <img 
+                        src={field.signatureData} 
+                        alt="Signature" 
+                        style={{ height: "40px", maxWidth: "150px" }}
+                    />
+                ) : (
+                    <span style={{ color: "#0066cc", fontWeight: "500" }}>
+                        📝 Click to sign
+                    </span>
+                )
+            ) : (
+                <span style={{ fontWeight: "600" }}>
+                    {field.value}
+                </span>
+            )}
+            
+            {/* Remove button */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();  // Prevent triggering signature modal
+                    removeField(field.id);
+                }}
+                style={{
+                    position: "absolute",
+                    top: "-8px",
+                    right: "-8px",
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "#e03131",
+                    color: "#fff",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center"
+                }}
+            >
+                ✕
+            </button>
+        </div>
+    ))
+}
+                        </div>
                     </div>
                 ) : (
                     <div className="preparing-container">
@@ -451,6 +505,11 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
                     </div>
                 )}
             </div>
+            <SignatureModal
+                isOpen={showSignatureModal}
+                onClose={handleSignatureClose}
+                onApply={handleSignatureApply}
+            />
         </div>
     );
 }

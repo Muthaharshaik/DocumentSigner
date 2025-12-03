@@ -50,6 +50,14 @@
   background: #fff;
   cursor: grab;
 }
+.field-name:active {
+    cursor: grabbing;
+}
+
+.field-name:hover {
+    border-color: var(--ds-primary-color);
+    background: #f0f7ff;
+}
 /* ============================================================
    LOADING STATE - Enhanced like PDF Annotations
    ============================================================ */

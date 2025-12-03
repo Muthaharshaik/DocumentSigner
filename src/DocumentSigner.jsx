@@ -273,6 +273,15 @@ export default function DocumentSigner(props) {
         setDroppedFields(prev => prev.filter(field => field.id !== id));
     }
 
+    // Function to update field with signature
+const updateFieldSignature = useCallback((fieldId, signatureData) => {
+    setDroppedFields(prev => prev.map(field => 
+        field.id === fieldId 
+            ? { ...field, signatureData: signatureData }
+            : field
+    ));
+}, []);
+
     // Loading state (enhanced like PDF Annotations)
     if (isLoading) {
         return (
@@ -347,6 +356,7 @@ export default function DocumentSigner(props) {
                         onFieldDrop={handleFieldDrop}
                         droppedFields={droppedFields}
                         removeField={removeField}
+                        onSignatureApply={updateFieldSignature}
                     />
                 </div>
                 <div className="right-field-pannel">
