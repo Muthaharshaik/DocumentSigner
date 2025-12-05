@@ -4,13 +4,12 @@
 import { createElement, useCallback, useState, useEffect, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import '../ui/DocumentViewer.css';
-import SignatureModal from "./SignatureModal";
 
 // PDF.js worker setup
 console.log('🔧 PDF.js version from react-pdf:', pdfjs.version);
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, droppedFields, removeField, onSignatureApply}) {
+export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, droppedFields, removeField, onSignatureApply, defaultUserName,onFieldValueChange, onFieldReposition }) {
     const [isLoading, setIsLoading] = useState(true);
     const [numPages, setNumPages] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -20,8 +19,6 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
     const [processedPdfSource, setProcessedPdfSource] = useState(null);
     const [isPreparingSource, setIsPreparingSource] = useState(false);
     const [isCanvasReady, setIsCanvasReady] = useState(false);
-    const [showSignatureModal, setShowSignatureModal] = useState(false)
-    const [signingFieldId, setSigningFieldId] = useState(null) //which field is being signed
 
     // Document options (memoized like PDF Annotations)
     const documentOptions = useMemo(() => ({
@@ -53,35 +50,32 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
         pdfBug: false
     }), []);
     
-    //This function is called when Dragging Over PDF page
+    // This function is called when Dragging Over PDF page
     const handleDragOver = useCallback((e) => {
-        e.preventDefault() //Must allow dropping
-    },[])
+        e.preventDefault(); // Must allow dropping
+    }, []);
 
-    //This function is called when Dropping on PDF page
+    // This function is called when Dropping on PDF page
     const handleDrop = useCallback((e) => {
-        e.preventDefault()
-        const fieldType = e.dataTransfer.getData("fieldType")
-        if (!fieldType) return;
-        //Get position relative to PDF container
-        //Get PDF box position on screen
-        const rect = e.currentTarget.getBoundingClientRect();
-        //Mouse position inside PDF
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        // Convert into percentage coordinates
-        //x means horizantal from left 
-        //y means vertcial from top
-        const xPercent = (x / rect.width) * 100;
-        const yPercent = (y / rect.height) * 100;
-
-        // Notify parent (DocumentSigner)
-        onFieldDrop(fieldType, {
-            xPercent,
-            yPercent,
-            page: currentPage
-        });
-    },[onFieldDrop, currentPage])
+    e.preventDefault();
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    // Check if repositioning existing field
+    const dragFieldId = e.dataTransfer.getData("dragFieldId");
+    if (dragFieldId) {
+        // Call parent function to update position
+        onFieldReposition(dragFieldId, { xPercent, yPercent, page: currentPage });
+        return;
+    }
+    
+    // New field drop (existing code)
+    const fieldType = e.dataTransfer.getData("fieldType");
+    if (!fieldType) return;
+    onFieldDrop(fieldType, { xPercent, yPercent, page: currentPage });
+    }, [onFieldDrop, onFieldReposition, currentPage]);
 
     // PDF loading strategies (like PDF Annotations)
     const createPDFSource = useCallback((url, method) => {
@@ -224,7 +218,7 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
         setIsLoading(false);
     }, [loadMethod]);
 
-    // Handle page changes - FIXED: Changed condition from > to >=
+    // Handle page changes
     const handlePageChange = useCallback((pageNumber) => {
         if (pageNumber >= 1 && pageNumber <= numPages) {
             setCurrentPage(pageNumber);
@@ -235,7 +229,7 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
     // Zoom functions
     const zoomIn = useCallback(() => {
         setIsCanvasReady(false);
-        setScale(prev => Math.min(prev + 0.2, 2.0)); // Increased max to 300%
+        setScale(prev => Math.min(prev + 0.2, 2.0));
     }, []);
 
     const zoomOut = useCallback(() => {
@@ -244,32 +238,9 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
     }, []);
 
     const zoomReset = useCallback(() => {
-        setIsCanvasReady(false)
-        setScale(1.0)
-    }, [])
-
-    // Open modal when user clicks signature placeholder
-    const handleSignatureClick = useCallback((fieldId) => {
-        setSigningFieldId(fieldId);
-        setShowSignatureModal(true);
+        setIsCanvasReady(false);
+        setScale(1.0);
     }, []);
-
-    // Close modal
-    const handleSignatureClose = useCallback(() => {
-        setShowSignatureModal(false);
-        setSigningFieldId(null);
-    }, []);
-
-    // Apply signature to field
-    const handleSignatureApply = useCallback((signatureData) => {
-        // We need to update the field's value with signature
-        // This requires a function from parent (DocumentSigner)
-        if (signingFieldId && onSignatureApply) {
-            onSignatureApply(signingFieldId, signatureData);
-        }
-        setShowSignatureModal(false);
-        setSigningFieldId(null);
-    }, [signingFieldId, onSignatureApply]);
 
     // Initial loading state
     if (!pdfUrl) {
@@ -315,7 +286,7 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
 
                     <button
                         onClick={zoomReset}
-                        disabled={scale == 1.0}
+                        disabled={scale === 1.0}
                         className="toolbar-button"
                         title="Reset Zoom"
                     >
@@ -367,109 +338,101 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
                 {/* PDF Document */}
                 {processedPdfSource ? (
                     <div className="pdf-page-wrapper">
-                        <div className="pdf-drop-zone" onDragOver={handleDragOver}  onDrop={handleDrop}>
-                        <Document
-                            file={processedPdfSource}
-                            onLoadSuccess={handleLoadSuccess}
-                            onLoadError={handleLoadError}
-                            options={documentOptions}
-                            loading={
-                                <div className="page-loading">
-                                    <div className="loading-spinner"></div>
-                                    <p>Loading Document...</p>
-                                </div>
-                            }
-                        >
-                            <Page
-                                pageNumber={currentPage}
-                                scale={scale}
-                                renderAnnotationLayer={false}
-                                renderTextLayer={false}
-                                onRenderSuccess={handlePageRenderSuccess}
+                        <div className="pdf-drop-zone" onDragOver={handleDragOver} onDrop={handleDrop}>
+                            <Document
+                                file={processedPdfSource}
+                                onLoadSuccess={handleLoadSuccess}
+                                onLoadError={handleLoadError}
+                                options={documentOptions}
                                 loading={
                                     <div className="page-loading">
-                                        <p>Loading page {currentPage}...</p>
+                                        <div className="loading-spinner"></div>
+                                        <p>Loading Document...</p>
                                     </div>
                                 }
-                            />
-                        </Document>
-                        {droppedFields
-    .filter(field => field.page === currentPage)
-    .map(field => (
-        <div 
-            key={field.id}
-            className="pdf-field-placeholder"
-            style={{
-                position: 'absolute',
-                left: `${field.xPercent}%`,
-                top: `${field.yPercent}%`,
-                transform: `translate(-50%, -50%) scale(${scale})`,
-                transformOrigin: 'center center',
-                padding: "5px 10px",
-                backgroundColor: field.type === "signature" && !field.signatureData 
-                    ? "rgba(200, 230, 255, 0.9)"  // Blue for unsigned
-                    : "rgba(255, 255, 0, 0.7)",   // Yellow for others
-                border: "1px solid #333",
-                borderRadius: "4px",
-                fontSize: "12px",
-                zIndex: 100,
-                cursor: field.type === "signature" ? "pointer" : "default",
-            }}
-            onClick={() => {
-                // Only open modal for signature fields that aren't signed yet
-                if (field.type === "signature" && !field.signatureData) {
-                    handleSignatureClick(field.id);
-                }
-            }}
-        >
-            {/* Show signature image or placeholder text */}
-            {field.type === "signature" ? (
-                field.signatureData ? (
-                    <img 
-                        src={field.signatureData} 
-                        alt="Signature" 
-                        style={{ height: "40px", maxWidth: "150px" }}
-                    />
-                ) : (
-                    <span style={{ color: "#0066cc", fontWeight: "500" }}>
-                        📝 Click to sign
-                    </span>
-                )
-            ) : (
-                <span style={{ fontWeight: "600" }}>
-                    {field.value}
-                </span>
-            )}
-            
-            {/* Remove button */}
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();  // Prevent triggering signature modal
-                    removeField(field.id);
-                }}
-                style={{
-                    position: "absolute",
-                    top: "-8px",
-                    right: "-8px",
-                    width: "18px",
-                    height: "18px",
-                    borderRadius: "50%",
-                    border: "none",
-                    background: "#e03131",
-                    color: "#fff",
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    cursor: "pointer",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center"
-                }}
-            >
-                ✕
-            </button>
-        </div>
-    ))
-}
+                            >
+                                <Page
+                                    pageNumber={currentPage}
+                                    scale={scale}
+                                    renderAnnotationLayer={false}
+                                    renderTextLayer={false}
+                                    onRenderSuccess={handlePageRenderSuccess}
+                                    loading={
+                                        <div className="page-loading">
+                                            <p>Loading page {currentPage}...</p>
+                                        </div>
+                                    }
+                                />
+                            </Document>
+                            
+                            {/* Render dropped fields */}
+                            {droppedFields
+                                .filter(field => field.page === currentPage)
+                                .map(field => (
+                                    <div 
+                                        key={field.id}
+                                        className={`pdf-field-placeholder ${field.type}-field`}
+                                        draggable
+                                        onDragStart={(e) => {
+                                            e.dataTransfer.setData("dragFieldId", field.id)
+                                        }}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${field.xPercent}%`,
+                                            top: `${field.yPercent}%`,
+                                            transform: `translate(-50%, -50%) scale(${scale})`,
+                                            transformOrigin: 'center center',
+                                            zIndex: 100,
+                                        }}
+                                    >
+                                        {/* Signature field with image */}
+                                        {field.type === "signature" ? (
+                                            field.signatureData ? (
+                                           // Signed Signature
+                                           <div className="signature-field-content signed">
+                                                <img 
+                                                   src={field.signatureData} 
+                                                   alt="Signature" 
+                                                   className="signature-image"
+                                                />
+                                            </div>
+                                            ) : (
+                                                 // Signature Placeholder
+                                                <div className="signature-field-content unsigned">
+                                                       <span>📝 Signature pending...</span>
+                                                </div>
+                                            )
+                                        ) : field.type === "name" ? (
+                                            // Editable Name
+                                            <input
+                                               type="text"
+                                               className="field-value-input"
+                                               value={field.value}
+                                               onChange={(e) => onFieldValueChange(field.id, e.target.value)}
+                                               onClick={(e) => e.stopPropagation()}
+                                               onMouseDown={(e) => e.stopPropagation()}
+                                            />
+                                        ) : (
+                                            // Default → date or any other text field
+                                            <div className="text-field-content">
+                                                <span className="field-value">{field.value}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Remove button */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                removeField(field.id);
+                                            }}
+                                            className="remove-field-btn"
+                                            title="Remove field"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))
+                            }
                         </div>
                     </div>
                 ) : (
@@ -505,11 +468,6 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
                     </div>
                 )}
             </div>
-            <SignatureModal
-                isOpen={showSignatureModal}
-                onClose={handleSignatureClose}
-                onApply={handleSignatureApply}
-            />
         </div>
     );
 }

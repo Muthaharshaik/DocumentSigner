@@ -34,21 +34,25 @@
     height: 100%;
 }
 .left-pdf-viewer {
-    width: 70%;
+    width: 80%;
     border-right: 1px solid white
 }
 .right-field-pannel {
-    width:30%;
+    width:20%;
     padding:20px;
     background: #f5f5f5;
 }
 .field-name {
-  padding: 10px 12px;
-  border: 1px dashed grey;
+  padding: 22px 14px;
+  border: 1px solid white;
   border-radius: 6px;
   margin-bottom: 12px;
   background: #fff;
   cursor: grab;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15)
 }
 .field-name:active {
     cursor: grabbing;
@@ -245,6 +249,10 @@
     color: #6c757d;
 }
 
+.field-img {
+    width: 28px;
+    height: 28px;
+}
 /* ============================================================
    RESPONSIVE DESIGN
    ============================================================ */

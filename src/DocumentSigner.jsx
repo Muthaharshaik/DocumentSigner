@@ -1,6 +1,10 @@
 import { createElement, useCallback, useEffect, useState, useRef } from "react";
 import DocumentViewer from "./components/DocumentViewer";
+import SignatureModal from "./components/SignatureModal";
 import { downloadFromS3 } from "./utils/s3-downloader";
+import calenderIcon from "../src/assets/calender-svgrepo-com.svg"
+import signatureIcon from "../src/assets/signature-svgrepo-com.svg"
+import nameIcon from "../src/assets/text-svgrepo-com.svg"
 import "./ui/DocumentSigner.css";
 
 // Global counter for widget instances (like PDF Annotations)
@@ -13,7 +17,11 @@ export default function DocumentSigner(props) {
     const [loadingStatus, setLoadingStatus] = useState("Initializing widget...");
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [debugInfo, setDebugInfo] = useState([]);
-    const [droppedFields, setDroppedFields] = useState([])
+    const [droppedFields, setDroppedFields] = useState([]);
+    
+    // Signature modal state - moved to parent for auto-open on drop
+    const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [pendingSignatureField, setPendingSignatureField] = useState(null);
 
     // Unique widget instance ID for isolation (like PDF Annotations)
     const [widgetInstanceId] = useState(() => {
@@ -242,20 +250,19 @@ export default function DocumentSigner(props) {
         };
     }, [pdfUrl, addDebugLog]);
 
-    //Function to trigger when the user drops the field
-    const handleFieldDrop = (fieldType, position) => {
+    // Function to trigger when the user drops the field
+    const handleFieldDrop = useCallback((fieldType, position) => {
         let labelValue;
-        console.info(props.userName?.value || "No user Name")
-        console.info(props.currentDate?.value || "No Current Date")
+        console.info(props.userName?.value || "No user Name");
+        console.info(props.currentDate?.value || "No Current Date");
+        
         if (fieldType === "name" && props.userName?.value) {
-            labelValue = props.userName.value
+            labelValue = props.userName.value;
         }
         if (fieldType === "date" && props.currentDate?.value) {
-            labelValue = props.currentDate.value
+            labelValue = props.currentDate.value;
         }
-        if (fieldType === "signature" && props.userName?.value) {
-            labelValue = `Signed by ${props.userName.value}`;
-        }
+        
         const newField = {
             id: crypto.randomUUID(),
             type: fieldType,
@@ -265,22 +272,80 @@ export default function DocumentSigner(props) {
             value: labelValue
         };
 
-        setDroppedFields(prev => [...prev, newField])
-    };
+        // If it's a signature field, open the modal immediately
+        if (fieldType === "signature") {
+            // Store the pending field and open modal
+            setPendingSignatureField(newField);
+            setShowSignatureModal(true);
+        } else {
+            // For other fields, add directly
+            setDroppedFields(prev => [...prev, newField]);
+        }
+    }, [props.userName, props.currentDate]);
 
-    //Function to remove the Field
-    const removeField = (id) => {
+    // Function to remove the Field
+    const removeField = useCallback((id) => {
         setDroppedFields(prev => prev.filter(field => field.id !== id));
-    }
+    }, []);
 
-    // Function to update field with signature
-const updateFieldSignature = useCallback((fieldId, signatureData) => {
+    // Function to handle signature modal close
+    const handleSignatureModalClose = useCallback(() => {
+        setShowSignatureModal(false);
+        setPendingSignatureField(null);
+    }, []);
+
+    // Function to apply signature from modal
+    const handleSignatureApply = useCallback((signatureData) => {
+        if (pendingSignatureField) {
+            // Add the field with signature data
+            const fieldWithSignature = {
+                ...pendingSignatureField,
+                signatureData: signatureData.signatureImage,
+                fullName: signatureData.fullName,
+                initials: signatureData.initials,
+                signatureFont: signatureData.font,
+                signatureType: signatureData.type,
+                value: `Signed by ${signatureData.fullName}`
+            };
+            setDroppedFields(prev => [...prev, fieldWithSignature]);
+        }
+        setShowSignatureModal(false);
+        setPendingSignatureField(null);
+    }, [pendingSignatureField]);
+
+    // Function to update existing field with signature (for click-to-sign on already placed fields)
+    const updateFieldSignature = useCallback((fieldId, signatureData) => {
+        setDroppedFields(prev => prev.map(field => 
+            field.id === fieldId 
+                ? { 
+                    ...field, 
+                    signatureData: signatureData.signatureImage,
+                    fullName: signatureData.fullName,
+                    initials: signatureData.initials,
+                    signatureFont: signatureData.font,
+                    signatureType: signatureData.type,
+                    value: `Signed by ${signatureData.fullName}`
+                }
+                : field
+        ));
+    }, []);
+
+    //Function to handle the Name field value
+    const handleFieldValueChange = useCallback((fieldId, newValue) => {
+        setDroppedFields(prev => prev.map(field => 
+            field.id === fieldId
+            ? {...field, value: newValue}
+            :field
+        ))
+    }, [])
+
+    const handleFieldReposition = useCallback((fieldId, newPosition) => {
     setDroppedFields(prev => prev.map(field => 
         field.id === fieldId 
-            ? { ...field, signatureData: signatureData }
+            ? { ...field, xPercent: newPosition.xPercent, yPercent: newPosition.yPercent, page: newPosition.page }
             : field
     ));
-}, []);
+    }, []);
 
     // Loading state (enhanced like PDF Annotations)
     if (isLoading) {
@@ -344,7 +409,6 @@ const updateFieldSignature = useCallback((fieldId, signatureData) => {
         );
     }
 
-
     // Success - render DocumentViewer
     return (
         <div className="document-signer" data-widget-instance={widgetInstanceId}>
@@ -357,21 +421,43 @@ const updateFieldSignature = useCallback((fieldId, signatureData) => {
                         droppedFields={droppedFields}
                         removeField={removeField}
                         onSignatureApply={updateFieldSignature}
+                        defaultUserName={props.userName?.value || ""}
+                        onFieldValueChange={handleFieldValueChange}
+                        onFieldReposition={handleFieldReposition}
                     />
                 </div>
                 <div className="right-field-pannel">
-                    <h3>Add Fields</h3>
-                    <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "name")}>
-                        Name Field
+                    <div className="right-field-1">
+                        <h4>Add Fields</h4>
+                        <p className="drag-info">Drag fields and drop them on to the document preview</p>
                     </div>
-                    <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "date")}>
-                        Date Field
+                    <div className="right-field-2">
+                        <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "name")}>
+                            <img src={nameIcon} alt="Calendar" className="field-img"/>
+                            <span>Name Field</span>
+                        </div>
+                        <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "date")}>
+                            <img src={calenderIcon} alt="Calendar" className="field-img"/>
+                            <span>Date Field</span>
+                       </div>
+                       <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "signature")}>
+                            <img src={signatureIcon} alt="Signature" className="field-img" />
+                            <span>Signature Field</span>
+                       </div>
                     </div>
-                    <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "signature")}>
-                        Signature Field
-                    </div>
+                    <p className="drag-tip">
+                        Click and drag any field to the document preview on the left.Position them where signatures or information are needed.
+                    </p>
                 </div>
             </div>
+            
+            {/* Signature Modal - rendered at parent level for auto-open on drop */}
+            <SignatureModal
+                isOpen={showSignatureModal}
+                onClose={handleSignatureModalClose}
+                onApply={handleSignatureApply}
+                defaultName={props.userName?.value || ""}
+            />
         </div>
     );
 }
