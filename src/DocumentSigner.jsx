@@ -23,6 +23,8 @@ export default function DocumentSigner(props) {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [pendingSignatureField, setPendingSignatureField] = useState(null);
 
+    
+
     // Unique widget instance ID for isolation (like PDF Annotations)
     const [widgetInstanceId] = useState(() => {
         globalWidgetCounter++;
@@ -38,6 +40,16 @@ export default function DocumentSigner(props) {
     // Memory optimization refs for sync
     const previousJsonRef = useRef("");
     const syncTimeoutRef = useRef(null);
+
+    // Helper to create drag preview
+        const createDragPreview = useCallback((e, text, style) => {
+        const preview = document.createElement('div');
+        preview.innerText = text;
+        preview.style.cssText = `position:absolute;top:-1000px;padding:4px 10px;border-radius:3px;font-size:12px;font-weight:500;white-space:nowrap;${style}`;
+        document.body.appendChild(preview);
+        e.dataTransfer.setDragImage(preview, preview.offsetWidth / 2, 12);
+        setTimeout(() => document.body.removeChild(preview), 0);
+    }, []);
 
     // Debug logging function (like PDF Annotations)
     const addDebugLog = useCallback((message) => {
@@ -483,19 +495,25 @@ export default function DocumentSigner(props) {
                         <p className="drag-info">Drag fields and drop them on to the document preview</p>
                     </div>
                     <div className="right-field-2">
-                        <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "name")}>
+                        <div className="field-name" draggable onDragStart={(e) =>{ e.dataTransfer.setData("fieldType", "name")
+                            createDragPreview(e, props.userName?.value || 'Name', 'background:#ffffc8;border:1px solid #e6c200;');
+                        }}>
                             <div className="icon-bg purple">
                                 <img src={nameIcon} alt="Calendar" className="field-img"/>
                             </div>
                             <span>Name Field</span>
                         </div>
-                       <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "signature")}>
+                       <div className="field-name" draggable onDragStart={(e) => {e.dataTransfer.setData("fieldType", "signature")
+                            createDragPreview(e, '✍️ Sign here', 'background:#e8f4ff;border:2px dashed #0066cc;color:#0066cc;');
+                       }}>
                             <div className="icon-bg green">
                                 <img src={signatureIcon} alt="Signature" className="field-img" />
                             </div>
                             <span>Signature Field</span>
                        </div>
-                       <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "date")}>
+                       <div className="field-name" draggable onDragStart={(e) => {e.dataTransfer.setData("fieldType", "date")
+                         createDragPreview(e, props.currentDate?.value || 'Date', 'background:#ffffc8;border:1px solid #e6c200;');
+                       }}>
                             <div className="icon-bg blue">
                                 <img src={calenderIcon} alt="Calendar" className="field-img"/>
                             </div>
