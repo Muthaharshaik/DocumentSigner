@@ -34,6 +34,10 @@ export default function DocumentSigner(props) {
 
     // Track previous blob URL for cleanup
     const previousBlobUrl = useRef(null);
+    
+    // Memory optimization refs for sync
+    const previousJsonRef = useRef("");
+    const syncTimeoutRef = useRef(null);
 
     // Debug logging function (like PDF Annotations)
     const addDebugLog = useCallback((message) => {
@@ -52,6 +56,10 @@ export default function DocumentSigner(props) {
         addDebugLog("🚀 DocumentSigner Widget initialized");
         return () => {
             addDebugLog("🔥 DocumentSigner Widget unmounted");
+            // Cleanup sync timeout on unmount
+            if (syncTimeoutRef.current) {
+                clearTimeout(syncTimeoutRef.current);
+            }
         };
     }, [addDebugLog]);
 
@@ -253,8 +261,6 @@ export default function DocumentSigner(props) {
     // Function to trigger when the user drops the field
     const handleFieldDrop = useCallback((fieldType, position) => {
         let labelValue;
-        console.info(props.userName?.value || "No user Name");
-        console.info(props.currentDate?.value || "No Current Date");
         
         if (fieldType === "name" && props.userName?.value) {
             labelValue = props.userName.value;
@@ -330,22 +336,67 @@ export default function DocumentSigner(props) {
         ));
     }, []);
 
-    //Function to handle the Name field value
+    // Function to handle the Name field value
     const handleFieldValueChange = useCallback((fieldId, newValue) => {
         setDroppedFields(prev => prev.map(field => 
             field.id === fieldId
             ? {...field, value: newValue}
-            :field
-        ))
-    }, [])
-
-    const handleFieldReposition = useCallback((fieldId, newPosition) => {
-    setDroppedFields(prev => prev.map(field => 
-        field.id === fieldId 
-            ? { ...field, xPercent: newPosition.xPercent, yPercent: newPosition.yPercent, page: newPosition.page }
             : field
-    ));
+        ));
     }, []);
+
+    // Optimized field reposition with threshold check
+    const handleFieldReposition = useCallback((fieldId, newPosition) => {
+        setDroppedFields(prev => {
+            // Find the field
+            const field = prev.find(f => f.id === fieldId);
+            
+            // Skip if position hasn't meaningfully changed (within 0.5%)
+            if (field && 
+                Math.abs(field.xPercent - newPosition.xPercent) < 0.5 &&
+                Math.abs(field.yPercent - newPosition.yPercent) < 0.5 &&
+                field.page === newPosition.page) {
+                return prev; // Return same reference = no re-render
+            }
+            
+            // Update the field
+            return prev.map(f => 
+                f.id === fieldId 
+                    ? { ...f, xPercent: newPosition.xPercent, yPercent: newPosition.yPercent, page: newPosition.page }
+                    : f
+            );
+        });
+    }, []);
+
+    // OPTIMIZED: Debounced sync to Mendix with duplicate check
+    useEffect(() => {
+        // Clear any pending sync
+        if (syncTimeoutRef.current) {
+            clearTimeout(syncTimeoutRef.current);
+        }
+
+        // Debounce: wait 300ms after last change before syncing
+        syncTimeoutRef.current = setTimeout(() => {
+            if (props.fieldDataOutput?.setValue) {
+                const jsonData = JSON.stringify(droppedFields);
+                
+                // Only sync if data actually changed
+                if (jsonData !== previousJsonRef.current) {
+                    previousJsonRef.current = jsonData;
+                    props.fieldDataOutput.setValue(jsonData);
+                    addDebugLog(`📤 Field data synced to Mendix: ${droppedFields.length} fields`);
+                    console.info("Synced:", jsonData);
+                }
+            }
+        }, 300);
+
+        // Cleanup timeout on unmount
+        return () => {
+            if (syncTimeoutRef.current) {
+                clearTimeout(syncTimeoutRef.current);
+            }
+        };
+    }, [droppedFields, props.fieldDataOutput, addDebugLog]);
 
     // Loading state (enhanced like PDF Annotations)
     if (isLoading) {
@@ -433,21 +484,30 @@ export default function DocumentSigner(props) {
                     </div>
                     <div className="right-field-2">
                         <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "name")}>
-                            <img src={nameIcon} alt="Calendar" className="field-img"/>
+                            <div className="icon-bg purple">
+                                <img src={nameIcon} alt="Calendar" className="field-img"/>
+                            </div>
                             <span>Name Field</span>
                         </div>
-                        <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "date")}>
-                            <img src={calenderIcon} alt="Calendar" className="field-img"/>
-                            <span>Date Field</span>
-                       </div>
                        <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "signature")}>
-                            <img src={signatureIcon} alt="Signature" className="field-img" />
+                            <div className="icon-bg green">
+                                <img src={signatureIcon} alt="Signature" className="field-img" />
+                            </div>
                             <span>Signature Field</span>
                        </div>
+                       <div className="field-name" draggable onDragStart={(e) => e.dataTransfer.setData("fieldType", "date")}>
+                            <div className="icon-bg blue">
+                                <img src={calenderIcon} alt="Calendar" className="field-img"/>
+                            </div>
+                            <span>Date Field</span>
+                       </div>
                     </div>
-                    <p className="drag-tip">
-                        Click and drag any field to the document preview on the left.Position them where signatures or information are needed.
-                    </p>
+                    <div className="drag-tip">
+                        <h5 className="tip">Tip:</h5>
+                        <p className="tip-info">
+                        Click and drag any field to the document preview on the left. Position them where signatures or information are needed.
+                        </p>
+                    </div>
                 </div>
             </div>
             

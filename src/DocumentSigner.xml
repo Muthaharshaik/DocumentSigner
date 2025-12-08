@@ -63,8 +63,14 @@
                     <attributeType name="String" />
                 </attributeTypes>
             </property>
-        </propertyGroup>
 
-        
+            <property key="fieldDataOutput" type="attribute" required="false">
+                <caption>Field data(JSON)</caption>
+                <description>JSON string containing dropped field positions and data</description>
+                <attributeTypes>
+                    <attributeType name="String" />
+                </attributeTypes>
+            </property>
+        </propertyGroup>  
     </properties>
 </widget>

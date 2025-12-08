@@ -1,4 +1,4 @@
-import { createElement, useState, useEffect, useRef } from "react";
+import { createElement, useState, useEffect, useRef, useCallback } from "react";
 import "../ui/SignatureModal.css";
 
 // Available signature fonts
@@ -30,14 +30,14 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
     const [hasDrawing, setHasDrawing] = useState(false);
 
     // Generate initials from full name
-    const generateInitials = (name) => {
+    const generateInitials = useCallback((name) => {
         if (!name) return "";
         const words = name.trim().split(/\s+/);
         if (words.length === 1) {
             return words[0].charAt(0).toUpperCase();
         }
         return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
-    };
+    }, []);
 
     // Initialize with default name when modal opens
     useEffect(() => {
@@ -45,15 +45,15 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
             setFullName(defaultName);
             setInitials(generateInitials(defaultName));
         }
-    }, [isOpen, defaultName]);
+    }, [isOpen, defaultName, generateInitials]);
 
-    // Update initials when name changes (only if user hasn't manually edited initials)
-    const handleNameChange = (e) => {
+    // Update initials when name changes
+    const handleNameChange = useCallback((e) => {
         const newName = e.target.value;
         setFullName(newName);
         // Auto-update initials based on new name
         setInitials(generateInitials(newName));
-    };
+    }, [generateInitials]);
 
     // Setup canvas for drawing
     useEffect(() => {
@@ -74,8 +74,10 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
     }, [activeTab]);
 
     // Canvas drawing functions
-    const startDrawing = (e) => {
+    const startDrawing = useCallback((e) => {
         const canvas = canvasRef.current;
+        if (!canvas) return;
+        
         const ctx = canvas.getContext("2d");
         const rect = canvas.getBoundingClientRect();
         
@@ -85,12 +87,14 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
         ctx.beginPath();
         ctx.moveTo(x, y);
         setIsDrawing(true);
-    };
+    }, []);
 
-    const draw = (e) => {
+    const draw = useCallback((e) => {
         if (!isDrawing) return;
         
         const canvas = canvasRef.current;
+        if (!canvas) return;
+        
         const ctx = canvas.getContext("2d");
         const rect = canvas.getBoundingClientRect();
         
@@ -100,23 +104,23 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
         ctx.lineTo(x, y);
         ctx.stroke();
         setHasDrawing(true);
-    };
+    }, [isDrawing]);
 
-    const stopDrawing = () => {
+    const stopDrawing = useCallback(() => {
         setIsDrawing(false);
-    };
+    }, []);
 
-    const clearCanvas = () => {
+    const clearCanvas = useCallback(() => {
         const canvas = canvasRef.current;
         if (canvas) {
             const ctx = canvas.getContext("2d");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             setHasDrawing(false);
         }
-    };
+    }, []);
 
     // Handle apply signature
-    const handleApply = () => {
+    const handleApply = useCallback(() => {
         let signatureData;
         
         if (activeTab === "draw" && hasDrawing) {
@@ -124,7 +128,6 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
             signatureData = canvasRef.current.toDataURL("image/png");
         } else {
             // Create signature from text
-            // We'll create a canvas and render the text with the selected font
             const tempCanvas = document.createElement("canvas");
             tempCanvas.width = 300;
             tempCanvas.height = 80;
@@ -149,25 +152,36 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
             font: SIGNATURE_FONTS[selectedFontIndex].family,
             type: activeTab === "draw" ? "drawn" : "typed"
         });
-    };
+    }, [activeTab, hasDrawing, fullName, initials, selectedFontIndex, onApply]);
 
     // Clear all fields
-    const handleClear = () => {
+    const handleClear = useCallback(() => {
         if (activeTab === "draw") {
             clearCanvas();
         } else {
             setFullName("");
             setInitials("");
         }
-    };
+    }, [activeTab, clearCanvas]);
 
     // Reset state when modal closes
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         setActiveTab("style");
         setShowStylePicker(false);
         setHasDrawing(false);
         onClose();
-    };
+    }, [onClose]);
+
+    // Handle font selection
+    const handleFontSelect = useCallback((index) => {
+        setSelectedFontIndex(index);
+        setShowStylePicker(false);
+    }, []);
+
+    // Toggle style picker
+    const toggleStylePicker = useCallback(() => {
+        setShowStylePicker(prev => !prev);
+    }, []);
 
     if (!isOpen) return null;
 
@@ -248,7 +262,7 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
                                 <span className="preview-label">PREVIEW</span>
                                 <button 
                                     className="change-style-btn"
-                                    onClick={() => setShowStylePicker(!showStylePicker)}
+                                    onClick={toggleStylePicker}
                                 >
                                     Change Style
                                 </button>
@@ -261,10 +275,7 @@ export default function SignatureModal({ isOpen, onClose, onApply, defaultName =
                                         <button
                                             key={font.name}
                                             className={`font-option ${selectedFontIndex === index ? 'selected' : ''}`}
-                                            onClick={() => {
-                                                setSelectedFontIndex(index);
-                                                setShowStylePicker(false);
-                                            }}
+                                            onClick={() => handleFontSelect(index)}
                                         >
                                             <span style={{ fontFamily: font.family, fontSize: "24px" }}>
                                                 {fullName || "Your Name"}

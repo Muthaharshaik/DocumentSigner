@@ -1,7 +1,7 @@
-// DocumentViewer.jsx - Enhanced PDF Viewer Component
+// DocumentViewer.jsx - Enhanced PDF Viewer Component (OPTIMIZED)
 // Using react-pdf library with robust loading like PDF Annotations widget
 
-import { createElement, useCallback, useState, useEffect, useMemo } from "react";
+import { createElement, useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import '../ui/DocumentViewer.css';
 
@@ -9,7 +9,7 @@ import '../ui/DocumentViewer.css';
 console.log('🔧 PDF.js version from react-pdf:', pdfjs.version);
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, droppedFields, removeField, onSignatureApply, defaultUserName,onFieldValueChange, onFieldReposition }) {
+export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, droppedFields, removeField, onSignatureApply, defaultUserName, onFieldValueChange, onFieldReposition }) {
     const [isLoading, setIsLoading] = useState(true);
     const [numPages, setNumPages] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -19,6 +19,9 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
     const [processedPdfSource, setProcessedPdfSource] = useState(null);
     const [isPreparingSource, setIsPreparingSource] = useState(false);
     const [isCanvasReady, setIsCanvasReady] = useState(false);
+
+    // Ref for throttling reposition
+    const repositionTimeoutRef = useRef(null);
 
     // Document options (memoized like PDF Annotations)
     const documentOptions = useMemo(() => ({
@@ -49,32 +52,46 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
         isOffscreenCanvasSupported: false,
         pdfBug: false
     }), []);
+
+    // Cleanup reposition timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (repositionTimeoutRef.current) {
+                clearTimeout(repositionTimeoutRef.current);
+            }
+        };
+    }, []);
     
     // This function is called when Dragging Over PDF page
     const handleDragOver = useCallback((e) => {
         e.preventDefault(); // Must allow dropping
     }, []);
 
-    // This function is called when Dropping on PDF page
+    // This function is called when Dropping on PDF page (OPTIMIZED with throttle)
     const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    
-    const rect = e.currentTarget.getBoundingClientRect();
-    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
-    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
-    
-    // Check if repositioning existing field
-    const dragFieldId = e.dataTransfer.getData("dragFieldId");
-    if (dragFieldId) {
-        // Call parent function to update position
-        onFieldReposition(dragFieldId, { xPercent, yPercent, page: currentPage });
-        return;
-    }
-    
-    // New field drop (existing code)
-    const fieldType = e.dataTransfer.getData("fieldType");
-    if (!fieldType) return;
-    onFieldDrop(fieldType, { xPercent, yPercent, page: currentPage });
+        e.preventDefault();
+        
+        const rect = e.currentTarget.getBoundingClientRect();
+        const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        // Check if repositioning existing field
+        const dragFieldId = e.dataTransfer.getData("dragFieldId");
+        if (dragFieldId) {
+            // Throttle reposition updates to prevent rapid state changes
+            if (repositionTimeoutRef.current) {
+                clearTimeout(repositionTimeoutRef.current);
+            }
+            repositionTimeoutRef.current = setTimeout(() => {
+                onFieldReposition(dragFieldId, { xPercent, yPercent, page: currentPage });
+            }, 50); // Small delay to batch rapid updates
+            return;
+        }
+        
+        // New field drop (existing code)
+        const fieldType = e.dataTransfer.getData("fieldType");
+        if (!fieldType) return;
+        onFieldDrop(fieldType, { xPercent, yPercent, page: currentPage });
     }, [onFieldDrop, onFieldReposition, currentPage]);
 
     // PDF loading strategies (like PDF Annotations)
@@ -242,6 +259,11 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
         setScale(1.0);
     }, []);
 
+    // Memoize filtered fields for current page to prevent unnecessary re-renders
+    const currentPageFields = useMemo(() => {
+        return droppedFields.filter(field => field.page === currentPage);
+    }, [droppedFields, currentPage]);
+
     // Initial loading state
     if (!pdfUrl) {
         return (
@@ -365,74 +387,71 @@ export default function DocumentViewer({ pdfUrl, widgetInstanceId, onFieldDrop, 
                                 />
                             </Document>
                             
-                            {/* Render dropped fields */}
-                            {droppedFields
-                                .filter(field => field.page === currentPage)
-                                .map(field => (
-                                    <div 
-                                        key={field.id}
-                                        className={`pdf-field-placeholder ${field.type}-field`}
-                                        draggable
-                                        onDragStart={(e) => {
-                                            e.dataTransfer.setData("dragFieldId", field.id)
-                                        }}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${field.xPercent}%`,
-                                            top: `${field.yPercent}%`,
-                                            transform: `translate(-50%, -50%) scale(${scale})`,
-                                            transformOrigin: 'center center',
-                                            zIndex: 100,
-                                        }}
-                                    >
-                                        {/* Signature field with image */}
-                                        {field.type === "signature" ? (
-                                            field.signatureData ? (
-                                           // Signed Signature
-                                           <div className="signature-field-content signed">
+                            {/* Render dropped fields - using memoized currentPageFields */}
+                            {currentPageFields.map(field => (
+                                <div 
+                                    key={field.id}
+                                    className={`pdf-field-placeholder ${field.type}-field`}
+                                    draggable
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.setData("dragFieldId", field.id);
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${field.xPercent}%`,
+                                        top: `${field.yPercent}%`,
+                                        transform: `translate(-50%, -50%) scale(${scale})`,
+                                        transformOrigin: 'center center',
+                                        zIndex: 100,
+                                    }}
+                                >
+                                    {/* Signature field with image */}
+                                    {field.type === "signature" ? (
+                                        field.signatureData ? (
+                                            // Signed Signature
+                                            <div className="signature-field-content signed">
                                                 <img 
-                                                   src={field.signatureData} 
-                                                   alt="Signature" 
-                                                   className="signature-image"
+                                                    src={field.signatureData} 
+                                                    alt="Signature" 
+                                                    className="signature-image"
                                                 />
                                             </div>
-                                            ) : (
-                                                 // Signature Placeholder
-                                                <div className="signature-field-content unsigned">
-                                                       <span>📝 Signature pending...</span>
-                                                </div>
-                                            )
-                                        ) : field.type === "name" ? (
-                                            // Editable Name
-                                            <input
-                                               type="text"
-                                               className="field-value-input"
-                                               value={field.value}
-                                               onChange={(e) => onFieldValueChange(field.id, e.target.value)}
-                                               onClick={(e) => e.stopPropagation()}
-                                               onMouseDown={(e) => e.stopPropagation()}
-                                            />
                                         ) : (
-                                            // Default → date or any other text field
-                                            <div className="text-field-content">
-                                                <span className="field-value">{field.value}</span>
+                                            // Signature Placeholder
+                                            <div className="signature-field-content unsigned">
+                                                <span>📝 Signature pending...</span>
                                             </div>
-                                        )}
+                                        )
+                                    ) : field.type === "name" ? (
+                                        // Editable Name
+                                        <input
+                                            type="text"
+                                            className="field-value-input"
+                                            value={field.value || ""}
+                                            onChange={(e) => onFieldValueChange(field.id, e.target.value)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                    ) : (
+                                        // Default → date or any other text field
+                                        <div className="text-field-content">
+                                            <span className="field-value">{field.value}</span>
+                                        </div>
+                                    )}
 
-                                        {/* Remove button */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                removeField(field.id);
-                                            }}
-                                            className="remove-field-btn"
-                                            title="Remove field"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                ))
-                            }
+                                    {/* Remove button */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeField(field.id);
+                                        }}
+                                        className="remove-field-btn"
+                                        title="Remove field"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ) : (

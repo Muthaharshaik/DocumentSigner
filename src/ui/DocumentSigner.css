@@ -24,7 +24,7 @@
     min-height: 500px;
     background-color: var(--ds-light-color);
     border-radius: var(--ds-border-radius);
-    overflow: hidden;
+    /* overflow: hidden; */
     font-family: var(--ds-font-family);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -40,7 +40,44 @@
 .right-field-pannel {
     width:20%;
     padding:20px;
-    background: #f5f5f5;
+    background: #efefef;
+    border-radius: 14px;
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+}
+.icon-bg {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Individual Soft Colors */
+.icon-bg.purple {
+  background: #E9D5FF;
+}
+
+.icon-bg.blue {
+  background: #D6E4FF;
+}
+
+.icon-bg.green {
+  background: #D1F2E0;
+}
+
+.right-field-2 {
+    margin-top: 32px;
+}
+.drag-tip {
+    margin-top: 34px;
+    margin-bottom: 34px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    background: #fff;
+    padding: 8px;
+    border-radius: 6px;
 }
 .field-name {
   padding: 22px 14px;
@@ -52,7 +89,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15)
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  font-weight: 500;
 }
 .field-name:active {
     cursor: grabbing;
@@ -61,6 +99,17 @@
 .field-name:hover {
     border-color: var(--ds-primary-color);
     background: #f0f7ff;
+}
+.field-img {
+    width: 22px;
+    height: 22px;
+}
+.tip-info {
+    font-weight: 400;
+    opacity: 0.8;
+}
+.drag-info {
+    opacity: 0.9;
 }
 /* ============================================================
    LOADING STATE - Enhanced like PDF Annotations
@@ -249,10 +298,6 @@
     color: #6c757d;
 }
 
-.field-img {
-    width: 28px;
-    height: 28px;
-}
 /* ============================================================
    RESPONSIVE DESIGN
    ============================================================ */
